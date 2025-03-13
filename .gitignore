@@ -1,1 +1,2 @@
-.vscodemkdir .github
+.vscode
+*.db
