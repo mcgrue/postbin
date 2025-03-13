@@ -10,6 +10,13 @@ go run main.go
 
 The server will start on port 8080.
 
+Note: These examples use `jq` for JSON formatting. Install it with:
+- Ubuntu/Debian: `sudo apt-get install jq`
+- macOS: `brew install jq`
+- Windows: `choco install jq`
+
+If you don't have `jq`, you can omit the `| jq .` parts from the commands.
+
 ## Manual Testing with curl
 
 ### 1. Create a new bin
@@ -89,10 +96,3 @@ curl -X DELETE "http://localhost:8080/api/bin/$BIN_ID"
 # Verify bin is deleted
 curl -s "http://localhost:8080/api/bin/$BIN_ID"
 ```
-
-Note: These examples use `jq` for JSON formatting. Install it with:
-- Ubuntu/Debian: `sudo apt-get install jq`
-- macOS: `brew install jq`
-- Windows: `choco install jq`
-
-If you don't have `jq`, you can omit the `| jq .` parts from the commands.
