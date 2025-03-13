@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -18,6 +19,14 @@ type Bin struct {
 	BinID   string `json:"binId"`
 	Now     int64  `json:"now"`
 	Expires int64  `json:"expires"`
+}
+
+// Create a response struct that includes the count
+type BinResponse struct {
+	BinID   string `json:"binId"`
+	Now     int64  `json:"now"`
+	Expires int64  `json:"expires"`
+	Entries int    `json:"entries"`
 }
 
 type Request struct {
@@ -89,15 +98,17 @@ func createBinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bin := Bin{
+	// Create response with entries count (will be 0 for new bin)
+	response := BinResponse{
 		BinID:   binID,
 		Now:     now,
 		Expires: expires,
+		Entries: 0,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(bin)
+	json.NewEncoder(w).Encode(response)
 }
 
 func getBinHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +131,24 @@ func getBinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the count of entries for this bin
+	var entries int
+	err = db.QueryRow("SELECT COUNT(*) FROM requests WHERE bin_id = ?", binID).Scan(&entries)
+	if err != nil {
+		http.Error(w, `{"msg":"Internal Server Error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Create response with entries count
+	response := BinResponse{
+		BinID:   bin.BinID,
+		Now:     bin.Now,
+		Expires: bin.Expires,
+		Entries: entries,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bin)
+	json.NewEncoder(w).Encode(response)
 }
 
 func deleteBinHandler(w http.ResponseWriter, r *http.Request) {
@@ -191,10 +218,14 @@ func getRequestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse binID and reqID from path
-	parts := r.URL.Path[len("/api/bin/"):] // Remove prefix
-	binID := parts[:8]                     // Assuming 8-char binID
-	reqID := parts[len("/req/"):]          // Get reqID after /req/
+	path := r.URL.Path[len("/api/bin/"):]
+	parts := strings.Split(path, "/req/")
+	if len(parts) != 2 {
+		http.Error(w, `{"msg":"Invalid path format"}`, http.StatusBadRequest)
+		return
+	}
+	binID := parts[0]
+	reqID := parts[1]
 
 	var req Request
 	var headersStr, queryStr, bodyStr string

@@ -95,10 +95,6 @@ func TestCreateBin(t *testing.T) {
 	if bin.Expires <= bin.Now {
 		t.Error("Expiration time should be in the future")
 	}
-
-	if bin.Entries != 0 {
-		t.Errorf("Expected 0 entries for new bin, got %d", bin.Entries)
-	}
 }
 
 func TestGetBin(t *testing.T) {
@@ -259,5 +255,44 @@ func TestExpiredBin(t *testing.T) {
 
 	if w.Code != http.StatusGone {
 		t.Errorf("Expected status code %d for expired bin, got %d", http.StatusGone, w.Code)
+	}
+}
+
+func TestBinEntries(t *testing.T) {
+	clearDB(t)
+
+	// First create a bin
+	createReq := httptest.NewRequest(http.MethodPost, "/api/bin", nil)
+	createW := httptest.NewRecorder()
+	createBinHandler(createW, createReq)
+
+	var bin BinResponse
+	json.NewDecoder(createW.Body).Decode(&bin)
+
+	// Verify initial count is 0
+	if bin.Entries != 0 {
+		t.Errorf("Expected 0 entries for new bin, got %d", bin.Entries)
+	}
+
+	// Add some requests to the bin
+	for i := 0; i < 3; i++ {
+		body := []byte(`{"test":"data"}`)
+		req := httptest.NewRequest(http.MethodPost, "/"+bin.BinID, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		captureRequestHandler(w, req)
+	}
+
+	// Get the bin again and verify count is 3
+	getReq := httptest.NewRequest(http.MethodGet, "/api/bin/"+bin.BinID, nil)
+	getW := httptest.NewRecorder()
+	getBinHandler(getW, getReq)
+
+	var updatedBin BinResponse
+	if err := json.NewDecoder(getW.Body).Decode(&updatedBin); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if updatedBin.Entries != 3 {
+		t.Errorf("Expected 3 entries after adding requests, got %d", updatedBin.Entries)
 	}
 }
